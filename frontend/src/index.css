@@ -578,6 +578,22 @@ button { cursor: pointer; font-family: inherit; }
 
 .scene-counter { color: var(--muted); font-size: 0.85rem; }
 
+.voice-select {
+  padding: 0.4rem 0.6rem;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 0.78rem;
+  font-family: inherit;
+  outline: none;
+  cursor: pointer;
+  max-width: 160px;
+  transition: border-color 0.15s;
+}
+.voice-select:hover:not(:disabled) { border-color: var(--accent); }
+.voice-select:disabled { opacity: 0.4; cursor: not-allowed; }
+
 .export-btn {
   padding: 0.45rem 1.1rem;
   border: 1px solid var(--border);

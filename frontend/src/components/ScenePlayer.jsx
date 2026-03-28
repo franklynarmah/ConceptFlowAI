@@ -1,7 +1,15 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import WhiteboardCanvas from './WhiteboardCanvas';
 
-function getBestVoice() {
+const bgMusic = new Audio('/background.mp3');
+bgMusic.loop   = true;
+bgMusic.volume = 0.67;
+
+function getEnglishVoices() {
+  return window.speechSynthesis.getVoices().filter((v) => v.lang.startsWith('en'));
+}
+
+function getDefaultVoice() {
   const voices = window.speechSynthesis.getVoices();
   return (
     voices.find((v) => v.name === 'Google US English') ||
@@ -18,19 +26,40 @@ export default function ScenePlayer({ data }) {
   const [sceneIdx, setSceneIdx]       = useState(0);
   const [isPlaying, setIsPlaying]     = useState(false);
   const [voicesReady, setVoicesReady] = useState(false);
+  const [voices, setVoices]           = useState([]);
+  const [selectedVoice, setSelectedVoice] = useState(null);
 
   const totalScenes = scenes.length;
   const scene       = scenes[sceneIdx];
 
   // ── Wait for browser voices to load ──────────────────────────────────────
   useEffect(() => {
-    if (window.speechSynthesis.getVoices().length > 0) {
+    const init = () => {
+      const list = getEnglishVoices();
+      setVoices(list);
+      setSelectedVoice(getDefaultVoice()?.name || list[0]?.name || '');
       setVoicesReady(true);
+    };
+    if (window.speechSynthesis.getVoices().length > 0) {
+      init();
     } else {
-      window.speechSynthesis.onvoiceschanged = () => setVoicesReady(true);
+      window.speechSynthesis.onvoiceschanged = init;
     }
-    return () => window.speechSynthesis.cancel();
+    return () => {
+      window.speechSynthesis.cancel();
+      bgMusic.pause();
+      bgMusic.currentTime = 0;
+    };
   }, []);
+
+  // ── Sync background music with play state ─────────────────────────────────
+  useEffect(() => {
+    if (isPlaying) {
+      bgMusic.play().catch(() => {}); // autoplay may be blocked until first user gesture
+    } else {
+      bgMusic.pause();
+    }
+  }, [isPlaying]);
 
   useEffect(() => {
     if (voicesReady) setIsPlaying(true);
@@ -42,11 +71,12 @@ export default function ScenePlayer({ data }) {
     const utter = new SpeechSynthesisUtterance(scenes[idx].narration);
     utter.rate  = 0.93;
     utter.pitch = 1.0;
-    utter.voice = getBestVoice();
+    const voice = window.speechSynthesis.getVoices().find((v) => v.name === selectedVoice);
+    if (voice) utter.voice = voice;
     utter.onend   = () => onEnd?.();
     utter.onerror = () => onEnd?.();
     window.speechSynthesis.speak(utter);
-  }, [scenes]);
+  }, [scenes, selectedVoice]);
 
   // ── Advance to next scene ─────────────────────────────────────────────────
   const handleSceneEnd = useCallback((idx) => {
@@ -127,6 +157,17 @@ export default function ScenePlayer({ data }) {
               <button className="ctrl-btn" onClick={() => goTo(Math.min(totalScenes - 1, sceneIdx + 1))} disabled={sceneIdx === totalScenes - 1} title="Next">⏭</button>
             </div>
             <span className="scene-counter">Scene {sceneIdx + 1} / {totalScenes}</span>
+            <select
+              className="voice-select"
+              value={selectedVoice}
+              onChange={(e) => { setSelectedVoice(e.target.value); window.speechSynthesis.cancel(); setIsPlaying(false); }}
+              disabled={notReady}
+              title="Change voice"
+            >
+              {voices.map((v) => (
+                <option key={v.name} value={v.name}>{v.name}</option>
+              ))}
+            </select>
           </div>
         </div>
 
